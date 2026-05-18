@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Ventas - Farmacias Bolivia{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-shopping-cart"></i> Gestión de Ventas</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNuevaVenta">
+            <i class="fas fa-plus"></i> Nueva Venta
+        </button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label>Fecha Inicio</label>
+                    <input type="date" id="fecha_inicio" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label>Fecha Fin</label>
+                    <input type="date" id="fecha_fin" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label>Sucursal</label>
+                    <select id="filtro_sucursal" class="form-select">
+                        <option value="">Todas</option>
+                        <option value="1">Yungas</option>
+                        <option value="2">Tembladerani</option>
+                        <option value="3">Sopocachi</option>
+                        <option value="4">Pasoskanky</option>
+                        <option value="5">Faro</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary w-100" onclick="filtrarVentas()">
+                        <i class="fas fa-search"></i> Filtrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Ventas -->
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="tablaVentas">
+                    <thead>
+                        <tr>
+                            <th>Factura</th>
+                            <th>Fecha</th>
+                            <th>Sucursal</th>
+                            <th>Vendedor</th>
+                            <th>Cliente</th>
+                            <th>Subtotal</th>
+                            <th>IVA</th>
+                            <th>Total</th>
+                            <th>Método Pago</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for venta in ventas %}
+                        <tr>
+                            <td><strong>{{ venta.numero_factura }}</strong></td>
+                            <td>{{ venta.fecha_hora.strftime('%d/%m/%Y %H:%M') if venta.fecha_hora else 'N/A' }}</td>
+                            <td>{{ venta.sucursal_nombre }}</td>
+                            <td>{{ venta.vendedor }}</td>
+                            <td>{{ venta.id_cliente or 'Público General' }}</td>
+                            <td>Bs. {{ "%.2f"|format(venta.subtotal|float) }}</td>
+                            <td>Bs. {{ "%.2f"|format(venta.iva|float) }}</td>
+                            <td><strong>Bs. {{ "%.2f"|format(venta.total|float) }}</strong></td>
+                            <td><span class="badge bg-info">{{ venta.metodo_pago }}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info btn-ver-detalle" 
+                                        data-id="{{ venta.id_venta }}">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                {% if session.get('rol') == 'ADMIN' %}
+                                <button class="btn btn-sm btn-outline-danger btn-anular-venta" 
+                                        data-id="{{ venta.id_venta }}">
+                                    <i class="fas fa-ban"></i>
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="10" class="text-center">No hay ventas registradas</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nueva Venta -->
+<div class="modal fade" id="modalNuevaVenta" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-plus"></i> Registrar Nueva Venta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label>Buscar Producto</label>
+                        <input type="text" id="buscarProducto" class="form-control" placeholder="Nombre o código de barras">
+                        <div id="resultadosBusqueda" class="mt-2" style="max-height: 200px; overflow-y: auto;"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label>Cliente (opcional)</label>
+                        <select id="id_cliente" class="form-select">
+                            <option value="">Público General</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <i class="fas fa-shopping-cart"></i> Carrito de Venta
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table" id="tablaCarritoVenta">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Cantidad</th>
+                                        <th>Precio Unit.</th>
+                                        <th>Subtotal</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="carritoVentaBody">
+                                    <tr class="text-center">
+                                        <td colspan="5">No hay productos agregados</td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-active">
+                                        <td colspan="3"><strong>Subtotal</strong></td>
+                                        <td><strong id="ventaSubtotal">Bs. 0.00</strong></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr class="table-active">
+                                        <td colspan="3"><strong>IVA (13%)</strong></td>
+                                        <td><strong id="ventaIva">Bs. 0.00</strong></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr class="table-primary">
+                                        <td colspan="3"><strong>TOTAL</strong></td>
+                                        <td><strong id="ventaTotal">Bs. 0.00</strong></td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <select id="metodo_pago" class="form-select w-auto">
+                    <option value="EFECTIVO">Efectivo</option>
+                    <option value="QR">QR</option>
+                    <option value="TARJETA">Tarjeta</option>
+                    <option value="TRANSFERENCIA">Transferencia</option>
+                </select>
+                <button class="btn btn-success" id="btnRegistrarVenta">
+                    <i class="fas fa-check"></i> Registrar Venta
+                </button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalle Venta -->
+<div class="modal fade" id="modalDetalleVenta" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-receipt"></i> Detalle de Venta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detalleVentaBody">
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+let carritoVenta = [];
+let timeoutBusqueda;
+
+$(document).ready(function() {
+    cargarClientes();
+    
+    // Event listeners usando data-attributes
+    $(document).on('click', '.btn-ver-detalle', function() {
+        var id = $(this).data('id');
+        verDetalleVenta(id);
+    });
+    
+    $(document).on('click', '.btn-anular-venta', function() {
+        var id = $(this).data('id');
+        anularVenta(id);
+    });
+    
+    $('#btnRegistrarVenta').on('click', function() {
+        registrarVenta();
+    });
+});
+
+function cargarClientes() {
+    $.ajax({
+        url: '/api/clientes/listar',
+        method: 'GET',
+        success: function(response) {
+            if (response.clientes) {
+                const select = $('#id_cliente');
+                for (let i = 0; i < response.clientes.length; i++) {
+                    const cliente = response.clientes[i];
+                    select.append('<option value="' + cliente.id_cliente + '">' + cliente.nombre + ' ' + cliente.apellido_paterno + ' - ' + cliente.ci + '</option>');
+                }
+            }
+        }
+    });
+}
+
+$('#buscarProducto').on('input', function() {
+    clearTimeout(timeoutBusqueda);
+    const termino = $(this).val();
+    if (termino.length >= 2) {
+        timeoutBusqueda = setTimeout(function() {
+            buscarProductosVenta(termino);
+        }, 300);
+    } else {
+        $('#resultadosBusqueda').empty();
+    }
+});
+
+function buscarProductosVenta(termino) {
+    $.ajax({
+        url: '/api/medicamentos/buscar/' + encodeURIComponent(termino),
+        method: 'GET',
+        success: function(response) {
+            mostrarResultadosBusquedaVenta(response.resultados || []);
+        }
+    });
+}
+
+function mostrarResultadosBusquedaVenta(resultados) {
+    const container = $('#resultadosBusqueda');
+    container.empty();
+    
+    if (resultados.length === 0) {
+        container.html('<div class="alert alert-warning">No se encontraron productos</div>');
+        return;
+    }
+    
+    for (let i = 0; i < resultados.length; i++) {
+        const producto = resultados[i];
+        container.append(
+            '<div class="border rounded p-2 mb-2 d-flex justify-content-between align-items-center">' +
+                '<div>' +
+                    '<strong>' + producto.nombre_comercial + '</strong><br>' +
+                    '<small>Bs. ' + parseFloat(producto.precio).toFixed(2) + ' | Stock: ' + (producto.stock || 0) + '</small>' +
+                '</div>' +
+                '<button class="btn btn-sm btn-primary btn-agregar-producto" data-id="' + producto.id_medicamento + '" data-nombre="' + producto.nombre_comercial.replace(/'/g, "\\'") + '" data-precio="' + parseFloat(producto.precio) + '">' +
+                    '<i class="fas fa-cart-plus"></i> Agregar' +
+                '</button>' +
+            '</div>'
+        );
+    }
+    
+    // Event listener para botones dinámicos
+    $('.btn-agregar-producto').off('click').on('click', function() {
+        const id = $(this).data('id');
+        const nombre = $(this).data('nombre');
+        const precio = $(this).data('precio');
+        agregarAlCarritoVenta(id, nombre, precio);
+    });
+}
+
+function agregarAlCarritoVenta(id, nombre, precio) {
+    let existente = null;
+    for (let i = 0; i < carritoVenta.length; i++) {
+        if (carritoVenta[i].id === id) {
+            existente = carritoVenta[i];
+            break;
+        }
+    }
+    
+    if (existente) {
+        existente.cantidad++;
+    } else {
+        carritoVenta.push({ id: id, nombre: nombre, precio: precio, cantidad: 1 });
+    }
+    actualizarCarritoVenta();
+}
+
+function actualizarCarritoVenta() {
+    const body = $('#carritoVentaBody');
+    body.empty();
+    
+    if (carritoVenta.length === 0) {
+        body.html('<tr class="text-center"><td colspan="5">No hay productos agregados</td></tr>');
+    } else {
+        for (let i = 0; i < carritoVenta.length; i++) {
+            const item = carritoVenta[i];
+            const subtotal = item.cantidad * item.precio;
+            body.append(
+                '<tr>' +
+                    '<td>' + item.nombre + '</td>' +
+                    '<td>' +
+                        '<input type="number" class="form-control form-control-sm cantidad-input" style="width: 80px;" value="' + item.cantidad + '" min="1" data-index="' + i + '">' +
+                    '</td>' +
+                    '<td>Bs. ' + item.precio.toFixed(2) + '</td>' +
+                    '<td>Bs. ' + subtotal.toFixed(2) + '</td>' +
+                    '<td>' +
+                        '<button class="btn btn-sm btn-danger btn-eliminar-producto" data-index="' + i + '">' +
+                            '<i class="fas fa-trash"></i>' +
+                        '</button>' +
+                    '</td>' +
+                '</tr>'
+            );
+        }
+        
+        // Event listeners para elementos dinámicos
+        $('.cantidad-input').off('change').on('change', function() {
+            const index = $(this).data('index');
+            const nuevaCantidad = parseInt($(this).val());
+            actualizarCantidadVenta(index, nuevaCantidad);
+        });
+        
+        $('.btn-eliminar-producto').off('click').on('click', function() {
+            const index = $(this).data('index');
+            eliminarDelCarritoVenta(index);
+        });
+    }
+    
+    let subtotal = 0;
+    for (let i = 0; i < carritoVenta.length; i++) {
+        subtotal += carritoVenta[i].cantidad * carritoVenta[i].precio;
+    }
+    const iva = subtotal * 0.13;
+    const total = subtotal + iva;
+    
+    $('#ventaSubtotal').text('Bs. ' + subtotal.toFixed(2));
+    $('#ventaIva').text('Bs. ' + iva.toFixed(2));
+    $('#ventaTotal').text('Bs. ' + total.toFixed(2));
+}
+
+function actualizarCantidadVenta(index, nuevaCantidad) {
+    if (nuevaCantidad > 0) {
+        carritoVenta[index].cantidad = nuevaCantidad;
+        actualizarCarritoVenta();
+    }
+}
+
+function eliminarDelCarritoVenta(index) {
+    carritoVenta.splice(index, 1);
+    actualizarCarritoVenta();
+}
+
+function registrarVenta() {
+    if (carritoVenta.length === 0) {
+        mostrarNotificacion('Agregue productos a la venta', 'warning');
+        return;
+    }
+    
+    const metodoPago = $('#metodo_pago').val();
+    const idCliente = $('#id_cliente').val();
+    
+    const items = [];
+    for (let i = 0; i < carritoVenta.length; i++) {
+        items.push({
+            id_medicamento: carritoVenta[i].id,
+            cantidad: carritoVenta[i].cantidad,
+            precio: carritoVenta[i].precio
+        });
+    }
+    
+    const ventaData = {
+        items: items,
+        metodo_pago: metodoPago,
+        id_cliente: idCliente || null
+    };
+    
+    mostrarLoading();
+    
+    $.ajax({
+        url: '/api/ventas/registrar',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(ventaData),
+        success: function(response) {
+            if (response.success) {
+                mostrarNotificacion('Venta registrada', 'success');
+                setTimeout(function() { location.reload(); }, 1500);
+            } else {
+                mostrarNotificacion(response.error || 'Error al registrar venta', 'danger');
+            }
+        },
+        error: function() {
+            mostrarNotificacion('Error al registrar venta', 'danger');
+        },
+        complete: function() {
+            ocultarLoading();
+        }
+    });
+}
+
+function verDetalleVenta(id) {
+    $('#modalDetalleVenta').modal('show');
+    $('#detalleVentaBody').html('<div class="text-center">Cargando...</div>');
+    
+    $.ajax({
+        url: '/api/ventas/detalle/' + id,
+        method: 'GET',
+        success: function(response) {
+            let html = '<div class="table-responsive"><table class="table">';
+            html += '<tr><th>Factura:</th><td>' + (response.factura || 'N/A') + '</td></tr>';
+            html += '<tr><th>Fecha:</th><td>' + (response.fecha || 'N/A') + '</td></tr>';
+            html += '<tr><th>Total:</th><td>Bs. ' + (response.total || '0') + '</td></tr>';
+            html += '<tr><th>Productos:</th><td>' + (response.productos || 0) + '</td></tr>';
+            html += '</table></div>';
+            $('#detalleVentaBody').html(html);
+        },
+        error: function() {
+            $('#detalleVentaBody').html('<div class="alert alert-danger">Error al cargar detalle</div>');
+        }
+    });
+}
+
+function anularVenta(id) {
+    if (confirm('¿Está seguro de anular esta venta? Esta acción no se puede deshacer.')) {
+        mostrarLoading();
+        $.ajax({
+            url: '/api/ventas/anular/' + id,
+            method: 'POST',
+            success: function(response) {
+                if (response.success) {
+                    mostrarNotificacion('Venta anulada correctamente', 'success');
+                    setTimeout(function() { location.reload(); }, 1000);
+                } else {
+                    mostrarNotificacion(response.error || 'Error al anular', 'danger');
+                }
+            },
+            complete: function() {
+                ocultarLoading();
+            }
+        });
+    }
+}
+
+function filtrarVentas() {
+    const fechaInicio = $('#fecha_inicio').val();
+    const fechaFin = $('#fecha_fin').val();
+    const sucursal = $('#filtro_sucursal').val();
+    
+    let url = '/admin/ventas?';
+    if (fechaInicio) url += 'fecha_inicio=' + fechaInicio + '&';
+    if (fechaFin) url += 'fecha_fin=' + fechaFin + '&';
+    if (sucursal) url += 'sucursal=' + sucursal + '&';
+    
+    window.location.href = url;
+}
+
+// Funciones auxiliares
+function mostrarNotificacion(mensaje, tipo) {
+    const alertDiv = $('<div class="alert alert-' + tipo + ' alert-dismissible fade show position-fixed top-0 end-0 m-3" style="z-index: 9999; min-width: 300px;" role="alert">' +
+        '<i class="fas fa-' + (tipo === 'success' ? 'check-circle' : tipo === 'danger' ? 'exclamation-circle' : 'info-circle') + ' me-2"></i>' +
+        mensaje +
+        '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+        '</div>');
+    $('body').append(alertDiv);
+    setTimeout(function() { alertDiv.fadeOut('slow', function() { $(this).remove(); }); }, 3000);
+}
+
+function mostrarLoading() {
+    if ($('.spinner-overlay').length === 0) {
+        $('body').append('<div class="spinner-overlay position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex justify-content-center align-items-center" style="z-index: 9999;"><div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;"><span class="visually-hidden">Cargando...</span></div></div>');
+    }
+}
+
+function ocultarLoading() {
+    $('.spinner-overlay').fadeOut('fast', function() { $(this).remove(); });
+}
+</script>
+{% endblock %}
+{% endblock %}

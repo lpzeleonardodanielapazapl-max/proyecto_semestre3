@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes - Farmacias Bolivia{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-chart-bar"></i> Reportes y Estadísticas</h2>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label>Fecha Inicio</label>
+                    <input type="date" id="reporte_fecha_inicio" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label>Fecha Fin</label>
+                    <input type="date" id="reporte_fecha_fin" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label>Tipo Reporte</label>
+                    <select id="tipo_reporte" class="form-select">
+                        <option value="ventas">Ventas</option>
+                        <option value="ganancias">Ganancias</option>
+                        <option value="inventario">Inventario</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary w-100" id="btnGenerarReporte">
+                        <i class="fas fa-chart-line"></i> Generar Reporte
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Productos -->
+    <div class="card shadow mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="fas fa-trophy"></i> Top 10 Productos Más Vendidos</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Producto</th>
+                            <th>Unidades Vendidas</th>
+                            <th>N° Ventas</th>
+                            <th>Ingreso Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for producto in top_productos %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ producto.nombre_comercial }}</strong><br><small>{{ producto.nombre_generico or '' }}</small></td>
+                            <td>{{ producto.unidades_vendidas }}</td>
+                            <td>{{ producto.numero_ventas }}</td>
+                            <td>Bs. {{ "%.2f"|format(producto.ingreso_total|float) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center">No hay datos disponibles</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clientes Frecuentes -->
+    <div class="card shadow mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fas fa-users"></i> Clientes Frecuentes</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Cliente</th>
+                            <th>CI</th>
+                            <th>Total Compras</th>
+                            <th>Monto Gastado</th>
+                            <th>Ticket Promedio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente in clientes_frecuentes %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ cliente.nombre_completo }}</strong></td>
+                            <td>{{ cliente.ci }}</td>
+                            <td>{{ cliente.total_compras }}</td>
+                            <td>Bs. {{ "%.2f"|format(cliente.monto_total_gastado|float) }}</td>
+                            <td>Bs. {{ "%.2f"|format(cliente.ticket_promedio|float) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center">No hay datos disponibles</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Valorización Inventario -->
+    <div class="card shadow">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0"><i class="fas fa-boxes"></i> Valorización de Inventario por Sucursal</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Sucursal</th>
+                            <th>Total Productos</th>
+                            <th>Total Unidades</th>
+                            <th>Valor Costo</th>
+                            <th>Valor Venta</th>
+                            <th>Ganancia Potencial</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for valor in valorizacion %}
+                        <tr>
+                            <td><strong>{{ valor.sucursal }}</strong></td>
+                            <td>{{ valor.total_productos }}</td>
+                            <td>{{ valor.total_unidades }}</td>
+                            <td>Bs. {{ "%.2f"|format(valor.valor_costo|float) }}</td>
+                            <td>Bs. {{ "%.2f"|format(valor.valor_venta|float) }}</td>
+                            <td class="text-success">Bs. {{ "%.2f"|format(valor.ganancia_potencial|float) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center">No hay datos disponibles</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Resultados Reporte -->
+<div class="modal fade" id="modalResultadosReporte" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-chart-line"></i> Resultados del Reporte</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="resultadosReporteBody">
+                <div class="text-center">Generando reporte...</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" id="btnExportarExcel">
+                    <i class="fas fa-file-excel"></i> Exportar a Excel
+                </button>
+                <button class="btn btn-danger" id="btnExportarPDF">
+                    <i class="fas fa-file-pdf"></i> Exportar a PDF
+                </button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Establecer fechas por defecto (últimos 30 días)
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    $('#reporte_fecha_inicio').val(thirtyDaysAgo.toISOString().split('T')[0]);
+    $('#reporte_fecha_fin').val(today.toISOString().split('T')[0]);
+    
+    $('#btnGenerarReporte').on('click', function() {
+        generarReporte();
+    });
+});
+
+function generarReporte() {
+    const fechaInicio = $('#reporte_fecha_inicio').val();
+    const fechaFin = $('#reporte_fecha_fin').val();
+    const tipo = $('#tipo_reporte').val();
+    
+    if (!fechaInicio || !fechaFin) {
+        mostrarNotificacion('Seleccione un rango de fechas', 'warning');
+        return;
+    }
+    
+    mostrarLoading();
+    
+    $.ajax({
+        url: '/api/reportes/generar',
+        method: 'GET',
+        data: {
+            fecha_inicio: fechaInicio,
+            fecha_fin: fechaFin,
+            tipo: tipo
+        },
+        success: function(response) {
+            let html = '';
+            
+            if (response.datos && response.datos.length > 0) {
+                html = '<div class="table-responsive">';
+                html += '<table class="table table-striped" id="tablaReporte">';
+                html += '<thead class="table-dark"><tr>';
+                
+                // Encabezados
+                const headers = Object.keys(response.datos[0]);
+                for (let i = 0; i < headers.length; i++) {
+                    html += '<th>' + headers[i].replace(/_/g, ' ').toUpperCase() + '</th>';
+                }
+                html += '</tr></thead><tbody>';
+                
+                // Datos
+                for (let i = 0; i < response.datos.length; i++) {
+                    html += '<tr>';
+                    for (let j = 0; j < headers.length; j++) {
+                        let valor = response.datos[i][headers[j]];
+                        if (typeof valor === 'number') {
+                            valor = 'Bs. ' + valor.toFixed(2);
+                        }
+                        html += '<td>' + (valor || '-') + '</td>';
+                    }
+                    html += '</tr>';
+                }
+                
+                html += '</tbody></table></div>';
+            } else {
+                html = '<div class="alert alert-info">No hay datos para el período seleccionado</div>';
+            }
+            
+            $('#resultadosReporteBody').html(html);
+            $('#modalResultadosReporte').modal('show');
+        },
+        error: function() {
+            $('#resultadosReporteBody').html('<div class="alert alert-danger">Error al generar el reporte</div>');
+            $('#modalResultadosReporte').modal('show');
+        },
+        complete: function() {
+            ocultarLoading();
+        }
+    });
+}
+
+$('#btnExportarExcel').on('click', function() {
+    const fechaInicio = $('#reporte_fecha_inicio').val();
+    const fechaFin = $('#reporte_fecha_fin').val();
+    const tipo = $('#tipo_reporte').val();
+    
+    window.location.href = '/api/reportes/exportar/excel?fecha_inicio=' + fechaInicio + '&fecha_fin=' + fechaFin + '&tipo=' + tipo;
+});
+
+$('#btnExportarPDF').on('click', function() {
+    const fechaInicio = $('#reporte_fecha_inicio').val();
+    const fechaFin = $('#reporte_fecha_fin').val();
+    const tipo = $('#tipo_reporte').val();
+    
+    window.location.href = '/api/reportes/exportar/pdf?fecha_inicio=' + fechaInicio + '&fecha_fin=' + fechaFin + '&tipo=' + tipo;
+});
+
+function mostrarNotificacion(mensaje, tipo) {
+    const icono = tipo === 'success' ? 'check-circle' : (tipo === 'danger' ? 'exclamation-circle' : 'info-circle');
+    const alertDiv = $('<div class="alert alert-' + tipo + ' alert-dismissible fade show position-fixed top-0 end-0 m-3" style="z-index: 9999; min-width: 300px;" role="alert">' +
+        '<i class="fas fa-' + icono + ' me-2"></i>' +
+        mensaje +
+        '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+        '</div>');
+    $('body').append(alertDiv);
+    setTimeout(function() { alertDiv.fadeOut('slow', function() { $(this).remove(); }); }, 3000);
+}
+
+function mostrarLoading() {
+    if ($('.spinner-overlay').length === 0) {
+        $('body').append('<div class="spinner-overlay position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex justify-content-center align-items-center" style="z-index: 9999;"><div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;"><span class="visually-hidden">Cargando...</span></div></div>');
+    }
+}
+
+function ocultarLoading() {
+    $('.spinner-overlay').fadeOut('fast', function() { $(this).remove(); });
+}
+</script>
+{% endblock %}
+{% endblock %}

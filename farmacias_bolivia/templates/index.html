@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Farmacias Bolivia - Tu salud es nuestra prioridad{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section bg-gradient-primary text-white py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4">
+                    <i class="fas fa-hospital-user"></i> Farmacias Bolivia
+                </h1>
+                <p class="lead mb-4">
+                    Tu salud es nuestra prioridad. Más de 30 años cuidando de ti y tu familia con 
+                    medicamentos de calidad, precios justos y atención personalizada.
+                </p>
+                <div class="d-flex gap-3">
+                    <a href="{{ url_for('login') }}" class="btn btn-light btn-lg">
+                        <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+                    </a>
+                    <a href="{{ url_for('registro_cliente') }}" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-user-plus"></i> Soy Cliente
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 text-center">
+                <img src="{{ url_for('static', filename='img/farmacia-hero.png') }}" 
+                     alt="Farmacia" class="img-fluid" 
+                     onerror="this.src='https://via.placeholder.com/500x400?text=Farmacias+Bolivia'">
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Servicios -->
+<section class="services-section py-5 bg-light">
+    <div class="container">
+        <h2 class="text-center mb-5">Nuestros Servicios</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 text-center shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-truck fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Delivery Gratis</h5>
+                        <p class="card-text">Entregas a domicilio en toda La Paz. Compra desde casa y recibe tus medicamentos en menos de 2 horas.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 text-center shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-clock fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Atención 24/7</h5>
+                        <p class="card-text">Farmacias de turno disponibles todos los días. Tu salud no espera, nosotros tampoco.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 text-center shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-chalkboard-user fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Asesoría Farmacéutica</h5>
+                        <p class="card-text">Farmacéuticos profesionales listos para resolver tus dudas y recomendarte el mejor tratamiento.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Beneficios -->
+<section class="benefits-section py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h2 class="mb-4">¿Por qué elegirnos?</h2>
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-success me-2"></i>
+                    <strong>Más de 1000 productos</strong> en nuestro catálogo
+                </div>
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-success me-2"></i>
+                    <strong>Precios competitivos</strong> y descuentos exclusivos
+                </div>
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-success me-2"></i>
+                    <strong>5 sucursales</strong> en La Paz para tu comodidad
+                </div>
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-success me-2"></i>
+                    <strong>Pagos seguros</strong> en efectivo o QR
+                </div>
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-success me-2"></i>
+                    <strong>Receta médica</strong> subida en línea sin complicaciones
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="bg-primary text-white rounded p-3 text-center">
+                            <h3 class="display-4">30+</h3>
+                            <p>Años de experiencia</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="bg-success text-white rounded p-3 text-center">
+                            <h3 class="display-4">50K+</h3>
+                            <p>Clientes satisfechos</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="bg-info text-white rounded p-3 text-center">
+                            <h3 class="display-4">24/7</h3>
+                            <p>Atención continua</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="bg-warning text-dark rounded p-3 text-center">
+                            <h3 class="display-4">5</h3>
+                            <p>Sucursales</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Sucursales -->
+<section class="branches-section py-5 bg-light">
+    <div class="container">
+        <h2 class="text-center mb-5">Nuestras Sucursales</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-map-marker-alt text-danger"></i> Yungas
+                        </h5>
+                        <p class="card-text">
+                            Av. Principal N° 123, Yungas<br>
+                            <i class="fas fa-phone"></i> 2-2212345<br>
+                            <i class="fas fa-clock"></i> Lun-Dom: 8:00 - 22:00
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-map-marker-alt text-danger"></i> Tembladerani
+                        </h5>
+                        <p class="card-text">
+                            Calle Illampu N° 456, Tembladerani<br>
+                            <i class="fas fa-phone"></i> 2-2234567<br>
+                            <i class="fas fa-clock"></i> Lun-Dom: 8:00 - 22:00
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-map-marker-alt text-danger"></i> Sopocachi
+                        </h5>
+                        <p class="card-text">
+                            Av. 6 de Agosto N° 789, Sopocachi<br>
+                            <i class="fas fa-phone"></i> 2-2256789<br>
+                            <i class="fas fa-clock"></i> Lun-Dom: 8:00 - 22:00
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-map-marker-alt text-danger"></i> Pasoskanky
+                        </h5>
+                        <p class="card-text">
+                            Calle Pasoskanky N° 321, Miraflores<br>
+                            <i class="fas fa-phone"></i> 2-2278901<br>
+                            <i class="fas fa-clock"></i> Lun-Dom: 8:00 - 22:00
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-map-marker-alt text-danger"></i> Faro
+                        </h5>
+                        <p class="card-text">
+                            Av. Costanera N° 654, Zona Sur<br>
+                            <i class="fas fa-phone"></i> 2-2290123<br>
+                            <i class="fas fa-clock"></i> Lun-Dom: 8:00 - 22:00
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-primary text-white shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="fas fa-truck fa-2x mb-2"></i>
+                        <h5>¿No puedes venir?</h5>
+                        <p>¡Te llevamos tus medicamentos a casa!</p>
+                        <a href="#" class="btn btn-light">Pedir Delivery</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Testimonios -->
+<section class="testimonials-section py-5">
+    <div class="container">
+        <h2 class="text-center mb-5">Lo que dicen nuestros clientes</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <p class="mt-3">"Excelente servicio, muy rápido el delivery y los precios son los mejores. Recomendado 100%"</p>
+                        <footer class="blockquote-footer">María López</footer>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <p class="mt-3">"La atención es muy buena, siempre me ayudan con mis dudas sobre los medicamentos."</p>
+                        <footer class="blockquote-footer">Carlos Mendoza</footer>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <i class="fas fa-star text-warning"></i>
+                        <p class="mt-3">"La página web es muy fácil de usar, comprar es muy sencillo. Llegaron antes de lo esperado."</p>
+                        <footer class="blockquote-footer">Ana García</footer>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action -->
+<section class="cta-section bg-primary text-white py-5">
+    <div class="container text-center">
+        <h2 class="mb-3">¿Listo para comprar?</h2>
+        <p class="lead mb-4">Regístrate ahora y obtén un 10% de descuento en tu primera compra</p>
+        <a href="{{ url_for('registro_cliente') }}" class="btn btn-light btn-lg">
+            <i class="fas fa-user-plus"></i> Registrarme Ahora
+        </a>
+    </div>
+</section>
+{% endblock %}

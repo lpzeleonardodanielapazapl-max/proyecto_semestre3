@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Admin - Farmacias Bolivia{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-chart-line"></i> Dashboard Administrativo
+        </h2>
+        <div class="text-muted">
+            <i class="fas fa-calendar-alt"></i> {{ now|default('Hoy') }}
+        </div>
+    </div>
+    
+    <!-- Tarjetas de Métricas -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Ventas Hoy</h6>
+                            <h2 class="mb-0">{{ ventas_hoy.total_ventas|default(0) }}</h2>
+                            <small>Bs. {{ ventas_hoy.monto_total|default(0)|round(2) }}</small>
+                        </div>
+                        <i class="fas fa-shopping-cart fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark shadow">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Stock Crítico</h6>
+                            <h2 class="mb-0">{{ stock_critico|default(0) }}</h2>
+                            <small>Productos por debajo del mínimo</small>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Clientes Nuevos</h6>
+                            <h2 class="mb-0">{{ clientes_nuevos|default(0) }}</h2>
+                            <small>Este mes</small>
+                        </div>
+                        <i class="fas fa-users fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white shadow">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Ganancia del Mes</h6>
+                            <h2 class="mb-0">Bs. {{ ganancias_mes|default(0)|round(2) }}</h2>
+                            <small>{{ pedidos_pendientes|default(0) }} pedidos pendientes</small>
+                        </div>
+                        <i class="fas fa-dollar-sign fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráficos -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Ventas Últimos 7 Días</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="ventasChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Distribución de Ventas</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="distribucionChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Accesos Rápidos -->
+    <div class="row g-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-bolt"></i> Accesos Rápidos</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin_ventas') }}" class="btn btn-outline-primary w-100 py-3">
+                                <i class="fas fa-shopping-cart fa-2x d-block mb-2"></i>
+                                Registrar Venta
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin_inventario') }}" class="btn btn-outline-success w-100 py-3">
+                                <i class="fas fa-boxes fa-2x d-block mb-2"></i>
+                                Gestionar Stock
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin_pedidos') }}" class="btn btn-outline-warning w-100 py-3">
+                                <i class="fas fa-truck fa-2x d-block mb-2"></i>
+                                Ver Pedidos
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-info w-100 py-3">
+                                <i class="fas fa-chart-bar fa-2x d-block mb-2"></i>
+                                Generar Reportes
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Estado de Estructuras de Datos -->
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-database"></i> Estado de Estructuras de Datos</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <i class="fas fa-shopping-cart fa-2x text-primary"></i>
+                                <h4>{{ estructuras.carrito_items|default(0) }}</h4>
+                                <small>Items en carritos activos</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <i class="fas fa-clock fa-2x text-warning"></i>
+                                <h4>{{ estructuras.cola_pedidos|default(0) }}</h4>
+                                <small>Pedidos en cola FIFO</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <i class="fas fa-history fa-2x text-info"></i>
+                                <h4>{{ estructuras.historial_acciones|default(0) }}</h4>
+                                <small>Acciones registradas</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3">
+                                <i class="fas fa-tree fa-2x text-success"></i>
+                                <h4>{{ estructuras.medicamentos_registrados|default(0) }}</h4>
+                                <small>Medicamentos en árbol BB</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+// Gráfico de ventas
+const ctx = document.getElementById('ventasChart').getContext('2d');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+        datasets: [{
+            label: 'Ventas (Bs.)',
+            data: [1250, 1480, 1680, 1920, 2100, 1850, 1450],
+            borderColor: '#0d6efd',
+            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+            tension: 0.3,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                position: 'top'
+            }
+        }
+    }
+});
+
+// Gráfico de distribución
+const ctxDist = document.getElementById('distribucionChart').getContext('2d');
+new Chart(ctxDist, {
+    type: 'doughnut',
+    data: {
+        labels: ['Sopocachi', 'Yungas', 'Tembladerani', 'Pasoskanky', 'Faro'],
+        datasets: [{
+            data: [35, 20, 15, 18, 12],
+            backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true
+    }
+});
+</script>
+{% endblock %}
+{% endblock %}

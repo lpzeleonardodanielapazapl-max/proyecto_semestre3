@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Pedidos - Farmacias Bolivia{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-truck"></i> Mis Pedidos</h2>
+        <a href="{{ url_for('cliente_catalogo') }}" class="btn btn-primary">
+            <i class="fas fa-shopping-cart"></i> Realizar nuevo pedido
+        </a>
+    </div>
+
+    {% if pedidos and pedidos|length > 0 %}
+        {% for pedido in pedidos %}
+        <div class="card shadow mb-4" data-pedido-id="{{ pedido.id_pedido }}">
+            <div class="card-header bg-light">
+                <div class="row align-items-center">
+                    <div class="col-md-3">
+                        <strong>N° Pedido:</strong> {{ pedido.numero_pedido }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Fecha:</strong> {{ pedido.fecha_pedido.strftime('%d/%m/%Y %H:%M') if pedido.fecha_pedido else 'N/A' }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Total:</strong> Bs. {{ "%.2f"|format(pedido.total|float) }}
+                    </div>
+                    <div class="col-md-3">
+                        {% if pedido.estado_pedido == 'PENDIENTE' %}
+                            <span class="badge bg-warning">Pendiente</span>
+                        {% elif pedido.estado_pedido == 'CONFIRMADO' %}
+                            <span class="badge bg-info">Confirmado</span>
+                        {% elif pedido.estado_pedido == 'PREPARANDO' %}
+                            <span class="badge bg-primary">Preparando</span>
+                        {% elif pedido.estado_pedido == 'ENVIADO' %}
+                            <span class="badge bg-success">Enviado</span>
+                        {% elif pedido.estado_pedido == 'ENTREGADO' %}
+                            <span class="badge bg-success">Entregado</span>
+                        {% else %}
+                            <span class="badge bg-danger">Cancelado</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h6><i class="fas fa-box"></i> Productos</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Cantidad</th>
+                                        <th>Precio Unit.</th>
+                                        <th>Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="detalle-pedido-body" data-id="{{ pedido.id_pedido }}">
+                                    <tr>
+                                        <td colspan="4" class="text-center">
+                                            <span class="spinner-border spinner-border-sm"></span> Cargando...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <h6><i class="fas fa-map-marker-alt"></i> Entrega</h6>
+                            <p class="small mb-1"><strong>Dirección:</strong> {{ pedido.direccion_entrega or 'No especificada' }}</p>
+                            <p class="small mb-1"><strong>Método de Pago:</strong> {{ pedido.metodo_pago or 'N/A' }}</p>
+                            {% if pedido.receta_url %}
+                            <button class="btn btn-sm btn-outline-info mt-2 btn-ver-receta" data-receta="{{ pedido.receta_url }}">
+                                <i class="fas fa-prescription"></i> Ver Receta
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="card shadow">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-shopping-bag fa-4x text-muted mb-3"></i>
+            <h4>No tienes pedidos aún</h4>
+            <p class="text-muted">¡Realiza tu primera compra!</p>
+            <a href="{{ url_for('cliente_catalogo') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-shopping-cart"></i> Comenzar a Comprar
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Receta -->
+<div class="modal fade" id="modalReceta" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-prescription"></i> Receta Médica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center" id="modalRecetaBody">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Función para cargar detalles del pedido
+function cargarDetallePedido(pedidoId) {
+    fetch('/api/pedidos/detalle/' + pedidoId)
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            var tbody = document.querySelector('.detalle-pedido-body[data-id="' + pedidoId + '"]');
+            if (tbody) {
+                if (data.success && data.productos && data.productos.length > 0) {
+                    var html = '';
+                    for (var i = 0; i < data.productos.length; i++) {
+                        var p = data.productos[i];
+                        html += '<tr>';
+                        html += '<td>' + (p.nombre_comercial || 'N/A') + '</td>';
+                        html += '<td>' + (p.cantidad || 0) + '</td>';
+                        html += '<td>Bs. ' + (parseFloat(p.precio_unitario).toFixed(2) || '0.00') + '</td>';
+                        html += '<td>Bs. ' + (parseFloat(p.subtotal).toFixed(2) || '0.00') + '</td>';
+                        html += '</tr>';
+                    }
+                    tbody.innerHTML = html;
+                } else {
+                    tbody.innerHTML = '<td><td colspan="4" class="text-center">No hay productos</td></tr>';
+                }
+            }
+        })
+        .catch(function(error) {
+            console.error('Error:', error);
+            var tbody = document.querySelector('.detalle-pedido-body[data-id="' + pedidoId + '"]');
+            if (tbody) {
+                tbody.innerHTML = '<td><td colspan="4" class="text-center text-danger">Error al cargar detalles</td></tr>';
+            }
+        });
+}
+
+// Función para ver receta
+function verReceta(recetaUrl) {
+    var extension = recetaUrl.split('.').pop().toLowerCase();
+    var html = '';
+    
+    if (extension === 'pdf') {
+        html = '<embed src="/static/uploads/recetas/' + recetaUrl + '" type="application/pdf" width="100%" height="500px">';
+    } else if (extension === 'jpg' || extension === 'jpeg' || extension === 'png' || extension === 'gif') {
+        html = '<img src="/static/uploads/recetas/' + recetaUrl + '" class="img-fluid" alt="Receta">';
+    } else {
+        html = '<p>Formato no soportado</p>';
+        html += '<a href="/static/uploads/recetas/' + recetaUrl + '" class="btn btn-primary" target="_blank">Descargar</a>';
+    }
+    
+    document.getElementById('modalRecetaBody').innerHTML = html;
+    new bootstrap.Modal(document.getElementById('modalReceta')).show();
+}
+
+// Cargar todos los detalles al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Obtener todos los IDs de pedidos desde los elementos HTML
+    var elementos = document.querySelectorAll('.detalle-pedido-body');
+    for (var i = 0; i < elementos.length; i++) {
+        var pedidoId = elementos[i].getAttribute('data-id');
+        if (pedidoId) {
+            cargarDetallePedido(pedidoId);
+        }
+    }
+    
+    // Eventos para ver receta
+    var recetaButtons = document.querySelectorAll('.btn-ver-receta');
+    for (var i = 0; i < recetaButtons.length; i++) {
+        recetaButtons[i].addEventListener('click', function() {
+            var recetaUrl = this.getAttribute('data-receta');
+            if (recetaUrl) {
+                verReceta(recetaUrl);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
