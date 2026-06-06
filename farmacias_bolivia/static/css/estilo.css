@@ -1,17 +1,22 @@
 /* ======================================================
    ESTILOS PRINCIPALES - FARMACIAS BOLIVIA
+   TONOS VERDES CON DETALLES AMARILLOS
    ====================================================== */
 
 /* Variables globales */
 :root {
-    --primary-color: #0d6efd;
+    --primary-color: #2e7d32;      /* Verde principal */
+    --primary-dark: #1b5e20;       /* Verde oscuro */
+    --primary-light: #4caf50;      /* Verde claro */
     --secondary-color: #6c757d;
-    --success-color: #198754;
+    --success-color: #2e7d32;      /* Verde para éxito */
     --danger-color: #dc3545;
-    --warning-color: #ffc107;
-    --info-color: #0dcaf0;
+    --warning-color: #f9a825;      /* Amarillo más vibrante */
+    --info-color: #ffc107;          /* Amarillo para info */
     --dark-color: #212529;
     --light-color: #f8f9fa;
+    --accent-yellow: #ffd54f;       /* Amarillo suave */
+    --accent-gold: #ffb300;         /* Dorado */
 }
 
 /* Estilos generales */
@@ -23,7 +28,7 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f5f7fb;
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -34,23 +39,31 @@ main {
 }
 
 /* Navbar personalizado */
+.navbar {
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #388e3c 100%) !important;
+}
+
 .navbar-brand {
     font-size: 1.5rem;
     font-weight: bold;
+    color: #fff !important;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
 }
 
 .navbar .nav-link {
     font-weight: 500;
     transition: all 0.3s ease;
+    color: rgba(255,255,255,0.9) !important;
 }
 
 .navbar .nav-link:hover {
+    color: #ffd54f !important;
     transform: translateY(-2px);
 }
 
 /* Hero Section */
 .hero-section {
-    background: linear-gradient(135deg, #0d6efd 0%, #0099ff 50%, #00ccff 100%);
+    background: linear-gradient(135deg, #1b5e20 0%, #388e3c 50%, #ffb300 100%);
     position: relative;
     overflow: hidden;
 }
@@ -62,20 +75,27 @@ main {
     left: 0;
     right: 0;
     bottom: 0;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="rgba(255,255,255,0.1)" fill-opacity="1" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,154.7C960,171,1056,181,1152,165.3C1248,149,1344,107,1392,85.3L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') no-repeat bottom;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="rgba(255,215,0,0.15)" fill-opacity="1" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,154.7C960,171,1056,181,1152,165.3C1248,149,1344,107,1392,85.3L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') no-repeat bottom;
     background-size: cover;
     opacity: 0.3;
+}
+
+.hero-section h1, .hero-section p {
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
 }
 
 /* Tarjetas y efectos */
 .card {
     border: none;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    background: linear-gradient(135deg, #ffffff 0%, #f9f9f9 100%);
+    border-top: 3px solid var(--primary-color);
 }
 
 .card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 30px rgba(46, 125, 50, 0.2);
+    border-top-color: var(--warning-color);
 }
 
 /* Botones */
@@ -85,9 +105,39 @@ main {
     transition: all 0.3s ease;
 }
 
-.btn:hover {
+.btn-primary {
+    background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
+    border: none;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 5px 15px rgba(46, 125, 50, 0.3);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    border: none;
+    color: #2e7d32;
+    font-weight: bold;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #ffb300 0%, #f9a825 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 193, 7, 0.3);
+}
+
+.btn-outline-primary {
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-outline-primary:hover {
+    background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
+    border-color: transparent;
 }
 
 .btn:active {
@@ -97,13 +147,13 @@ main {
 /* Formularios */
 .form-control, .form-select {
     border-radius: 8px;
-    border: 1px solid #dee2e6;
+    border: 1px solid #c8e6c9;
     transition: all 0.3s ease;
 }
 
 .form-control:focus, .form-select:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    box-shadow: 0 0 0 0.2rem rgba(46, 125, 50, 0.25);
 }
 
 /* Tablas */
@@ -113,14 +163,14 @@ main {
 }
 
 .table thead th {
-    background-color: var(--primary-color);
+    background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
     color: white;
     font-weight: 500;
     border: none;
 }
 
 .table-hover tbody tr:hover {
-    background-color: rgba(13, 110, 253, 0.05);
+    background-color: rgba(46, 125, 50, 0.05);
 }
 
 /* Badges */
@@ -130,25 +180,46 @@ main {
     font-weight: 500;
 }
 
+.badge-success {
+    background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
+}
+
+.badge-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    color: #2e7d32;
+}
+
 /* Alertas */
 .alert {
     border-radius: 10px;
     border: none;
 }
 
+.alert-success {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border-left: 4px solid var(--primary-color);
+    color: #1b5e20;
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+    border-left: 4px solid var(--warning-color);
+}
+
 /* Footer */
 footer {
+    background: linear-gradient(135deg, #1b5e20 0%, #0a3d0e 100%) !important;
     margin-top: auto;
 }
 
 footer a {
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(255, 215, 0, 0.8);
     text-decoration: none;
     transition: color 0.3s ease;
 }
 
 footer a:hover {
-    color: white;
+    color: #ffd54f;
     text-decoration: underline;
 }
 
@@ -164,6 +235,18 @@ footer a:hover {
     }
 }
 
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(46, 125, 50, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(46, 125, 50, 0);
+    }
+}
+
 .fade-in {
     animation: fadeIn 0.5s ease-out;
 }
@@ -174,7 +257,7 @@ footer a:hover {
 }
 
 .cart-item:hover {
-    background-color: #f8f9fa;
+    background-color: #e8f5e9;
 }
 
 .cart-item img {
@@ -201,13 +284,25 @@ footer a:hover {
     color: var(--secondary-color);
 }
 
+.discount-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    color: #1b5e20;
+    font-weight: bold;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+}
+
 /* Estilos para el checkout */
 .checkout-summary {
-    background-color: #f8f9fa;
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
     border-radius: 10px;
     padding: 1.5rem;
     position: sticky;
     top: 20px;
+    border-left: 4px solid var(--warning-color);
 }
 
 /* Loading spinner */
@@ -217,11 +312,15 @@ footer a:hover {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(46, 125, 50, 0.8);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 9999;
+}
+
+.spinner-border {
+    color: #ffc107 !important;
 }
 
 /* Responsive */
@@ -247,15 +346,67 @@ footer a:hover {
 }
 
 ::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: #e8f5e9;
     border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--primary-color);
+    background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
     border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #0b5ed7;
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+}
+
+/* Elementos decorativos verdes y amarillos */
+.price-tag {
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+.highlight {
+    background: linear-gradient(120deg, rgba(255, 193, 7, 0.2) 0%, rgba(255, 193, 7, 0.2) 100%);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+}
+
+/* Botón flotante de ayuda */
+.help-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #2e7d32 0%, #ffc107 100%);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    animation: pulse 2s infinite;
+}
+
+.help-button:hover {
+    transform: scale(1.1);
+    background: linear-gradient(135deg, #1b5e20 0%, #ffb300 100%);
+}
+
+/* Paginación */
+.page-link {
+    color: var(--primary-color);
+    border-color: #c8e6c9;
+}
+
+.page-item.active .page-link {
+    background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.page-link:hover {
+    background-color: #e8f5e9;
+    color: var(--primary-dark);
+    border-color: #c8e6c9;
 }

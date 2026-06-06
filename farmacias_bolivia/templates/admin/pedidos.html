@@ -34,13 +34,19 @@
                             <td>{{ pedido.numero_pedido }}</td>
                             <td>{{ pedido.cliente }}</td>
                             <td>{{ pedido.fecha_pedido.strftime('%d/%m/%Y %H:%M') if pedido.fecha_pedido else 'N/A' }}</td>
-                            <td>Bs. {{ "%.2f"|format(pedido.total|float) }}</td>
+                            <td>
+                                Bs. {{ "%.2f"|format(pedido.total|float) }}
+                                {% if pedido.receta_medica_url %}
+                                    <br><span class="badge bg-warning text-dark"><i class="fas fa-prescription-bottle-alt"></i> Receta</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 <select class="form-select form-select-sm cambiar-estado" 
                                         data-id="{{ pedido.id_pedido }}" 
                                         data-estado="{{ pedido.estado_pedido }}"
                                         style="width: 130px;">
                                     <option value="PENDIENTE" {% if pedido.estado_pedido == 'PENDIENTE' %}selected{% endif %}>📋 Pendiente</option>
+                                    <option value="REVISION_RECETA" {% if pedido.estado_pedido == 'REVISION_RECETA' %}selected{% endif %}>🔍 Revisión Receta</option>
                                     <option value="CONFIRMADO" {% if pedido.estado_pedido == 'CONFIRMADO' %}selected{% endif %}>✅ Confirmado</option>
                                     <option value="PREPARANDO" {% if pedido.estado_pedido == 'PREPARANDO' %}selected{% endif %}>🔧 Preparando</option>
                                     <option value="ENVIADO" {% if pedido.estado_pedido == 'ENVIADO' %}selected{% endif %}>🚚 Enviado</option>
@@ -158,6 +164,27 @@ document.querySelectorAll('.btn-ver-detalle').forEach(function(btn) {
                     html += '</div>';
                     html += '</div>';
                     
+                    if (p.receta_medica_url) {
+                        html += '<div class="card bg-light border-warning mt-3 mb-3">';
+                        html += '<div class="card-header bg-warning text-dark">';
+                        html += '<h6 class="mb-0 fw-bold"><i class="fas fa-prescription-bottle-alt"></i> Receta Médica Adjunta</h6>';
+                        html += '</div>';
+                        html += '<div class="card-body text-center">';
+                        html += '<a href="/' + p.receta_medica_url + '" target="_blank" title="Ver receta a tamaño completo">';
+                        html += '<img src="/' + p.receta_medica_url + '" class="img-fluid rounded border shadow-sm" style="max-height: 250px; cursor: zoom-in;">';
+                        html += '</a>';
+                        html += '<p class="small text-muted mt-2 mb-0">Haga clic en la imagen para abrir a tamaño completo</p>';
+                        
+                        var currentRol = '{{ session.rol }}';
+                        if (p.estado_pedido === 'REVISION_RECETA' && (currentRol === 'ADMIN' || currentRol === 'FARMACEUTICO')) {
+                            html += '<div class="d-flex justify-content-center gap-3 mt-3">';
+                            html += '<button class="btn btn-success btn-aprobar-receta" data-id="' + p.id_pedido + '"><i class="fas fa-check"></i> Aprobar Receta</button>';
+                            html += '<button class="btn btn-danger btn-rechazar-receta" data-id="' + p.id_pedido + '"><i class="fas fa-times"></i> Rechazar Receta</button>';
+                            html += '</div>';
+                        }
+                        html += '</div></div>';
+                    }
+                    
                     if (productos && productos.length > 0) {
                         html += '<h6 class="mt-3">Productos</h6>';
                         html += '<table class="table table-sm">';
@@ -186,6 +213,47 @@ document.querySelectorAll('.btn-ver-detalle').forEach(function(btn) {
         
         new bootstrap.Modal(document.getElementById('modalDetallePedido')).show();
     });
+});
+
+// Eventos de aprobación/rechazo de recetas
+$(document).on('click', '.btn-aprobar-receta', function() {
+    var id = $(this).data('id');
+    if (confirm('¿Aprobar la receta médica para el pedido #' + id + '? El estado del pedido cambiará a CONFIRMADO.')) {
+        fetch('/api/pedidos/aprobar-receta', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ pedido_id: id })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                alert('Receta aprobada con éxito');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
+});
+
+$(document).on('click', '.btn-rechazar-receta', function() {
+    var id = $(this).data('id');
+    if (confirm('¿Rechazar la receta médica para el pedido #' + id + '? El pedido será CANCELADO.')) {
+        fetch('/api/pedidos/rechazar-receta', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ pedido_id: id })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                alert('Receta rechazada con éxito. El pedido ha sido cancelado.');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

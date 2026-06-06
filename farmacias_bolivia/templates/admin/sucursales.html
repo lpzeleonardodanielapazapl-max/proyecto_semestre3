@@ -11,10 +11,20 @@
         </button>
     </div>
 
+    <!-- Buscador Interno -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="input-group">
+                <span class="input-group-text bg-success text-white"><i class="fas fa-search"></i></span>
+                <input type="text" id="buscadorSucursales" class="form-control" placeholder="Buscar sucursal por nombre, dirección o ciudad...">
+            </div>
+        </div>
+    </div>
+
     <!-- Tarjetas de Sucursales -->
     <div class="row g-4">
         {% for sucursal in sucursales %}
-        <div class="col-md-4">
+        <div class="col-md-4 sucursal-card-col">
             <div class="card h-100 shadow">
                 <div class="card-header {% if sucursal.activa %}bg-success text-white{% else %}bg-secondary text-white{% endif %}">
                     <div class="d-flex justify-content-between align-items-center">
@@ -225,6 +235,19 @@ $(document).ready(function() {
         if (confirm('¿Activar esta sucursal?')) {
             cambiarEstadoSucursal(id, true);
         }
+    });
+
+    // Buscador en tiempo real de sucursales
+    $('#buscadorSucursales').on('keyup', function() {
+        var searchVal = $(this).val().toLowerCase();
+        $('.sucursal-card-col').each(function() {
+            var cardText = $(this).text().toLowerCase();
+            if (cardText.indexOf(searchVal) > -1) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
     });
 });
 

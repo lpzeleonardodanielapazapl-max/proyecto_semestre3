@@ -200,7 +200,7 @@ def login():
                 print(f"❌ Login fallido para: {identificador}")
                 flash('Credenciales inválidas', 'danger')
         else:
-            cliente = verificar_cliente_hash(identificador)
+            cliente = verificar_cliente_hash(identificador, password)
             if cliente:
                 login_user(cliente, es_cliente=True)
                 estructuras.registrar_accion('INICIO_SESION', 'AUTH', 
@@ -208,7 +208,7 @@ def login():
                 flash(f'¡Bienvenido {cliente["nombre"]}!', 'success')
                 return redirect(url_for('cliente_dashboard'))
             else:
-                flash('Cliente no encontrado', 'danger')
+                flash('Credenciales inválidas o cliente no registrado', 'danger')
     
     return render_template('login.html')
 
@@ -227,6 +227,7 @@ def registro_cliente():
         email = request.form.get('email')
         telefono = request.form.get('telefono')
         direccion = request.form.get('direccion')
+        contrasena = request.form.get('contrasena')
         
         query = "SELECT * FROM cliente WHERE ci = %s OR email = %s"
         existe = db.execute_query(query, (ci, email))
@@ -236,7 +237,7 @@ def registro_cliente():
             return redirect(url_for('registro_cliente'))
         
         resultado = registrar_cliente(ci, nombre, apellido_paterno, apellido_materno, 
-                                       email, telefono, direccion)
+                                       email, telefono, direccion, contrasena)
         
         if resultado:
             flash('Registro exitoso. Ahora puedes iniciar sesión.', 'success')
@@ -421,19 +422,53 @@ def admin_reportes():
         flash('Acceso denegado', 'danger')
         return redirect(url_for('admin_dashboard'))
     
+    # 1. Top Products
     try:
-        top_productos = db.execute_query("SELECT * FROM vw_productos_mas_vendidos")
-    except Exception:
+        top_productos = db.execute_query("""
+            SELECT m.nombre_comercial, m.nombre_generico, SUM(dv.cantidad) AS unidades_vendidas, 
+                   COUNT(DISTINCT dv.id_venta) AS numero_ventas, SUM(dv.subtotal) AS ingreso_total
+            FROM detalle_venta dv
+            JOIN medicamento m ON dv.id_medicamento = m.id_medicamento
+            GROUP BY m.id_medicamento, m.nombre_comercial, m.nombre_generico
+            ORDER BY unidades_vendidas DESC LIMIT 10
+        """)
+    except Exception as e:
+        print(f"Error top_productos: {e}")
         top_productos = []
 
+    # 2. Clientes Frecuentes
     try:
-        clientes_frecuentes = db.execute_query("SELECT * FROM vista_clientes_frecuentes LIMIT 10")
-    except Exception:
+        clientes_frecuentes = db.execute_query("""
+            SELECT c.id_cliente, c.ci, CONCAT(c.nombres, ' ', c.apellidos) AS nombre_completo, 
+                   COUNT(p.id_pedido) AS total_compras, SUM(p.total) AS monto_total_gastado,
+                   AVG(p.total) AS ticket_promedio
+            FROM cliente c
+            JOIN pedido p ON c.id_cliente = p.id_cliente
+            WHERE p.estado = 'ENTREGADO'
+            GROUP BY c.id_cliente, c.ci, c.nombres, c.apellidos
+            ORDER BY monto_total_gastado DESC
+            LIMIT 10
+        """)
+    except Exception as e:
+        print(f"Error clientes_frecuentes: {e}")
         clientes_frecuentes = []
 
+    # 3. Valorización Inventario
     try:
-        valorizacion = db.execute_query("SELECT * FROM vista_valorizacion_inventario")
-    except Exception:
+        valorizacion = db.execute_query("""
+            SELECT s.nombre AS sucursal, 
+                   COUNT(DISTINCT i.id_medicamento) AS total_productos,
+                   SUM(i.stock_actual) AS total_unidades,
+                   SUM(i.stock_actual * COALESCE((SELECT AVG(dc.precio_compra) FROM detalle_compra dc WHERE dc.id_medicamento = i.id_medicamento), m.precio_actual * 0.70)) AS valor_costo,
+                   SUM(i.stock_actual * m.precio_actual) AS valor_venta,
+                   SUM(i.stock_actual * (m.precio_actual - COALESCE((SELECT AVG(dc.precio_compra) FROM detalle_compra dc WHERE dc.id_medicamento = i.id_medicamento), m.precio_actual * 0.70))) AS ganancia_potencial
+            FROM inventario i
+            JOIN sucursal s ON i.id_sucursal = s.id_sucursal
+            JOIN medicamento m ON i.id_medicamento = m.id_medicamento
+            GROUP BY s.id_sucursal, s.nombre
+        """)
+    except Exception as e:
+        print(f"Error valorizacion: {e}")
         valorizacion = []
     
     return render_template('admin/reportes.html',
@@ -448,7 +483,7 @@ def admin_sucursales():
         flash('Acceso denegado', 'danger')
         return redirect(url_for('admin_dashboard'))
     
-    query = "SELECT * FROM sucursal ORDER BY nombre"
+    query = "SELECT *, TRUE as activa FROM sucursal ORDER BY nombre"
     sucursales = db.execute_query(query)
     
     return render_template('admin/sucursales.html', sucursales=sucursales)
@@ -559,12 +594,20 @@ def cliente_checkout():
     if len(items) == 0:
         flash('No hay productos en el carrito', 'warning')
         return redirect(url_for('cliente_carrito'))
+        
+    # Query branches
+    sucursales = db.execute_query("SELECT id_sucursal, nombre, direccion, ciudad FROM sucursal ORDER BY nombre") or []
+    
+    # Check if prescription required
+    requiere_receta = any(item.get('requiere_receta') for item in items)
     
     return render_template('cliente/checkout.html', 
                           items=items, 
                           subtotal=subtotal, 
                           iva=iva, 
-                          total=total)
+                          total=total,
+                          sucursales=sucursales,
+                          requiere_receta=requiere_receta)
 
 @app.route('/cliente/mis-pedidos')
 @login_required
@@ -719,65 +762,86 @@ def api_eliminar_carrito():
 @login_required
 def api_crear_pedido():
     print("=" * 50)
-    print("🔵 API crear pedido - INICIANDO")
+    print("🔵 API crear pedido - INICIANDO (MÓDULO RECETA Y MULTIPART)")
     
     try:
         if session.get('tipo_usuario') != 'cliente':
             print("❌ Error: Usuario no es cliente")
             return jsonify({'success': False, 'error': 'Acceso no autorizado'}), 401
         
-        data = request.get_json()
-        print(f"📦 Datos recibidos: {data}")
-        
-        direccion = data.get('direccion')
-        metodo_pago = data.get('metodo_pago')
-        telefono = data.get('telefono')
+        # Check if request has files (multipart form)
+        if request.files or 'multipart/form-data' in (request.content_type or ''):
+            direccion = request.form.get('direccion')
+            id_sucursal_despacho = request.form.get('id_sucursal_despacho')
+            metodo_pago = request.form.get('metodo_pago')
+            telefono = request.form.get('telefono')
+            receta_file = request.files.get('receta_medica')
+        else:
+            data = request.get_json() or {}
+            direccion = data.get('direccion')
+            id_sucursal_despacho = data.get('id_sucursal_despacho')
+            metodo_pago = data.get('metodo_pago')
+            telefono = data.get('telefono')
+            receta_file = None
+            
+        print(f"📦 Datos extraídos: direccion={direccion}, sucursal={id_sucursal_despacho}, metodo={metodo_pago}, telefono={telefono}, archivo={receta_file}")
         
         if not direccion:
-            print("❌ Error: Falta dirección")
             return jsonify({'success': False, 'error': 'Falta dirección de entrega'}), 400
         
         if not metodo_pago:
-            print("❌ Error: Falta método de pago")
             return jsonify({'success': False, 'error': 'Falta método de pago'}), 400
+            
+        if not id_sucursal_despacho:
+            return jsonify({'success': False, 'error': 'Falta sucursal de despacho'}), 400
 
         if metodo_pago not in Config.METODOS_PAGO:
-            print(f"❌ Error: Método de pago inválido: {metodo_pago}")
             return jsonify({'success': False, 'error': 'Método de pago inválido'}), 400
 
         items = estructuras.carrito.obtener_todos()
-        print(f"📦 Items en carrito: {len(items)}")
-        print(f"📦 Items: {items}")
-        
         if len(items) == 0:
-            print("❌ Error: Carrito vacío")
             return jsonify({'success': False, 'error': 'El carrito está vacío'}), 400
+        
+        # Check if prescription is actually required
+        requiere_receta = any(item.get('requiere_receta') for item in items)
+        
+        receta_url = None
+        estado_pedido = 'PENDIENTE'
+        
+        if requiere_receta:
+            if not receta_file or receta_file.filename == '':
+                return jsonify({'success': False, 'error': 'Se requiere subir una receta médica para finalizar la compra de este medicamento.'}), 400
+            
+            if receta_file and archivo_permitido(receta_file.filename):
+                from werkzeug.utils import secure_filename
+                filename = secure_filename(f"receta_{datetime.now().strftime('%Y%m%d%H%M%S')}_{receta_file.filename}")
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                receta_file.save(file_path)
+                # Save relative path for URL retrieval
+                receta_url = os.path.join('static/uploads/recetas', filename).replace('\\', '/')
+                estado_pedido = 'REVISION_RECETA'
+                print(f"📸 Receta guardada en: {file_path}")
+            else:
+                return jsonify({'success': False, 'error': 'Formato de archivo de receta no permitido'}), 400
         
         subtotal = estructuras.carrito.obtener_total()
         iva = subtotal * 0.13
         total = subtotal + iva
-        print(f"💰 Subtotal: {subtotal}, IVA: {iva}, Total: {total}")
         
-        from datetime import datetime
         num_pedido = f"PED-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        print(f"📝 Número de pedido: {num_pedido}")
         
         query_pedido = """
-            INSERT INTO pedido (id_cliente, numero_pedido, subtotal, iva, total, 
-                               metodo_pago, direccion_entrega, telefono_contacto, estado)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'PENDIENTE')
+            INSERT INTO pedido (id_cliente, id_sucursal_despacho, numero_pedido, subtotal, iva, total, 
+                               metodo_pago, direccion_entrega, telefono_contacto, estado, receta_medica_url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        params_pedido = (session['cliente_id'], num_pedido, subtotal, iva, total, 
-                        metodo_pago, direccion, telefono if telefono else None)
+        params_pedido = (session['cliente_id'], id_sucursal_despacho, num_pedido, subtotal, iva, total, 
+                        metodo_pago, direccion, telefono if telefono else None, estado_pedido, receta_url)
         
-        print(f"📝 Insertando pedido con params: {params_pedido}")
         pedido_id = db.execute_insert(query_pedido, params_pedido)
         
         if not pedido_id:
-            print("❌ Error: No se pudo insertar pedido")
             return jsonify({'success': False, 'error': 'Error al guardar el pedido'}), 500
-        
-        print(f"✅ Pedido insertado con ID: {pedido_id}")
         
         for item in items:
             query_detalle = """
@@ -786,23 +850,21 @@ def api_crear_pedido():
             """
             params_detalle = (pedido_id, item['producto_id'], item['cantidad'], 
                             item['precio'], item['subtotal'])
-            print(f"📝 Insertando detalle: {params_detalle}")
             db.execute_insert(query_detalle, params_detalle)
         
         estructuras.cola_pedidos.encolar({
             'id_pedido': pedido_id,
             'numero_pedido': num_pedido,
             'cliente': session.get('cliente_nombre', 'Cliente'),
-            'total': total
+            'total': total,
+            'estado': estado_pedido,
+            'fecha': datetime.now().isoformat()
         })
         
         estructuras.registrar_accion('CREAR_PEDIDO', 'CHECKOUT', 
-                                     f'Pedido #{num_pedido} por Bs.{total:.2f}')
+                                     f'Pedido #{num_pedido} por Bs.{total:.2f} (Estado: {estado_pedido})')
         
         estructuras.carrito.vaciar()
-        
-        print(f"🎉 Pedido creado exitosamente: {num_pedido}")
-        print("=" * 50)
         
         return jsonify({
             'success': True,
@@ -812,7 +874,7 @@ def api_crear_pedido():
         })
         
     except Exception as e:
-        print(f"❌ ERROR: {e}")
+        print(f"❌ ERROR EN CREAR PEDIDO: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -871,7 +933,7 @@ def api_cambiar_estado_pedido():
             return jsonify({'success': False, 'error': 'Faltan datos'}), 400
         
         # Estados válidos
-        estados_validos = ['PENDIENTE', 'CONFIRMADO', 'PREPARANDO', 'ENVIADO', 'ENTREGADO', 'CANCELADO']
+        estados_validos = ['PENDIENTE', 'REVISION_RECETA', 'CONFIRMADO', 'PREPARANDO', 'ENVIADO', 'ENTREGADO', 'CANCELADO']
         if nuevo_estado not in estados_validos:
             return jsonify({'success': False, 'error': 'Estado no válido'}), 400
         
@@ -882,11 +944,13 @@ def api_cambiar_estado_pedido():
         if not actual:
             return jsonify({'success': False, 'error': 'Pedido no encontrado'}), 404
         
-        estado_actual = actual[0]['estado']
+        # Normalizar estado
+        estado_actual = actual[0]['estado'] or 'PENDIENTE'
         
         # Validar transición
         transiciones = {
-            'PENDIENTE': ['CONFIRMADO', 'CANCELADO'],
+            'PENDIENTE': ['REVISION_RECETA', 'CONFIRMADO', 'CANCELADO'],
+            'REVISION_RECETA': ['CONFIRMADO', 'CANCELADO'],
             'CONFIRMADO': ['PREPARANDO', 'CANCELADO'],
             'PREPARANDO': ['ENVIADO', 'CANCELADO'],
             'ENVIADO': ['ENTREGADO'],
@@ -915,6 +979,75 @@ def api_cambiar_estado_pedido():
         
     except Exception as e:
         print(f"❌ Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pedidos/aprobar-receta', methods=['POST'])
+@login_required
+def api_aprobar_receta():
+    try:
+        if session.get('tipo_usuario') != 'admin':
+            return jsonify({'success': False, 'error': 'Acceso no autorizado'}), 401
+        
+        rol = session.get('rol')
+        if rol not in ['ADMIN', 'FARMACEUTICO']:
+            return jsonify({'success': False, 'error': 'No tienes permisos de farmacéutico'}), 401
+        
+        data = request.get_json() or {}
+        pedido_id = data.get('pedido_id')
+        
+        if not pedido_id:
+            return jsonify({'success': False, 'error': 'Falta el ID del pedido'}), 400
+            
+        # Update order status to CONFIRMADO and set farmaceutico auditor
+        query = """
+            UPDATE pedido
+            SET estado = 'CONFIRMADO', id_farmaceutico_auditor = %s
+            WHERE id_pedido = %s
+        """
+        rows = db.execute_update(query, (session['user_id'], pedido_id))
+        
+        if rows > 0:
+            estructuras.registrar_accion('APROBAR_RECETA', 'PEDIDOS', f'Receta aprobada para pedido {pedido_id}')
+            return jsonify({'success': True, 'message': 'Receta aprobada con éxito'})
+        else:
+            return jsonify({'success': False, 'error': 'No se pudo actualizar el pedido'}), 400
+    except Exception as e:
+        print(f"❌ Error al aprobar receta: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/pedidos/rechazar-receta', methods=['POST'])
+@login_required
+def api_rechazar_receta():
+    try:
+        if session.get('tipo_usuario') != 'admin':
+            return jsonify({'success': False, 'error': 'Acceso no autorizado'}), 401
+        
+        rol = session.get('rol')
+        if rol not in ['ADMIN', 'FARMACEUTICO']:
+            return jsonify({'success': False, 'error': 'No tienes permisos de farmacéutico'}), 401
+        
+        data = request.get_json() or {}
+        pedido_id = data.get('pedido_id')
+        
+        if not pedido_id:
+            return jsonify({'success': False, 'error': 'Falta el ID del pedido'}), 400
+            
+        # Update order status to CANCELADO
+        query = """
+            UPDATE pedido
+            SET estado = 'CANCELADO', id_farmaceutico_auditor = %s
+            WHERE id_pedido = %s
+        """
+        rows = db.execute_update(query, (session['user_id'], pedido_id))
+        
+        if rows > 0:
+            estructuras.registrar_accion('RECHAZAR_RECETA', 'PEDIDOS', f'Receta rechazada para pedido {pedido_id}')
+            return jsonify({'success': True, 'message': 'Receta rechazada con éxito'})
+        else:
+            return jsonify({'success': False, 'error': 'No se pudo actualizar el pedido'}), 400
+    except Exception as e:
+        print(f"❌ Error al rechazar receta: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -962,6 +1095,339 @@ def api_pedido_detalle_admin(pedido_id):
 def api_buscar_medicamento(nombre):
     resultados = estructuras.arbol_medicamentos.buscar_por_prefijo(nombre)
     return jsonify({'resultados': resultados})
+
+
+@app.route('/api/sucursales/inventario/<int:id_sucursal>')
+@login_required
+def api_sucursales_inventario(id_sucursal):
+    try:
+        query = """
+            SELECT i.stock_actual AS cantidad, i.stock_minimo, m.nombre_comercial, 'Sección A' AS ubicacion_almacen
+            FROM inventario i
+            JOIN medicamento m ON i.id_medicamento = m.id_medicamento
+            WHERE i.id_sucursal = %s
+        """
+        inventario = db.execute_query(query, (id_sucursal,)) or []
+        return jsonify({'success': True, 'inventario': inventario})
+    except Exception as e:
+        print(f"❌ Error al obtener inventario de sucursal: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/sucursales/crear', methods=['POST'])
+@login_required
+def api_sucursales_crear():
+    try:
+        nombre = request.form.get('nombre')
+        direccion = request.form.get('direccion')
+        telefono = request.form.get('telefono')
+        encargado = request.form.get('encargado') or 'Sin encargado'
+        ciudad = request.form.get('ciudad') or 'La Paz'
+        
+        query = """
+            INSERT INTO sucursal (nombre, direccion, telefono, encargado, ciudad)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        id_sucursal = db.execute_insert(query, (nombre, direccion, telefono, encargado, ciudad))
+        
+        if id_sucursal:
+            estructuras.registrar_accion('CREAR_SUCURSAL', 'SUCURSALES', f'Creada sucursal {nombre}')
+            return jsonify({'success': True, 'id_sucursal': id_sucursal})
+        else:
+            return jsonify({'success': False, 'error': 'No se pudo crear la sucursal'}), 500
+    except Exception as e:
+        print(f"❌ Error al crear sucursal: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/sucursales/actualizar', methods=['POST'])
+@login_required
+def api_sucursales_actualizar():
+    try:
+        id_sucursal = request.form.get('id_sucursal')
+        nombre = request.form.get('nombre')
+        direccion = request.form.get('direccion')
+        telefono = request.form.get('telefono')
+        
+        query = """
+            UPDATE sucursal 
+            SET nombre = %s, direccion = %s, telefono = %s
+            WHERE id_sucursal = %s
+        """
+        db.execute_update(query, (nombre, direccion, telefono, id_sucursal))
+        estructuras.registrar_accion('ACTUALIZAR_SUCURSAL', 'SUCURSALES', f'Actualizada sucursal {nombre}')
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"❌ Error al actualizar sucursal: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/sucursales/cambiar-estado', methods=['POST'])
+@login_required
+def api_sucursales_cambiar_estado():
+    try:
+        data = request.get_json() or {}
+        id_sucursal = data.get('id_sucursal')
+        activo = data.get('activo')
+        
+        estructuras.registrar_accion('CAMBIAR_ESTADO_SUCURSAL', 'SUCURSALES', f'Cambiado estado sucursal {id_sucursal} a {activo}')
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/reportes/generar', methods=['GET'])
+@login_required
+def api_reportes_generar():
+    try:
+        if session.get('tipo_usuario') != 'admin' or session.get('rol') != 'ADMIN':
+            return jsonify({'success': False, 'error': 'Acceso no autorizado'}), 401
+            
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        tipo = request.args.get('tipo', 'ventas')
+        
+        if not fecha_inicio or not fecha_fin:
+            return jsonify({'success': False, 'error': 'Fechas requeridas'}), 400
+            
+        datos = []
+        if tipo == 'ventas':
+            query = """
+                SELECT s.nombre AS sucursal, DATE_FORMAT(v.fecha, '%Y-%m-%d %H:%i') AS fecha, 
+                       COALESCE(CONCAT(c.nombres, ' ', c.apellidos), 'Cliente Casual') AS cliente, 
+                       v.total
+                FROM venta v
+                JOIN sucursal s ON v.id_sucursal = s.id_sucursal
+                LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
+                WHERE DATE(v.fecha) BETWEEN %s AND %s
+                ORDER BY v.fecha DESC
+            """
+            datos = db.execute_query(query, (fecha_inicio, fecha_fin)) or []
+        elif tipo == 'ganancias':
+            query = """
+                SELECT s.nombre AS sucursal, YEAR(v.fecha) AS anio, MONTH(v.fecha) AS mes, 
+                       SUM(v.total) AS total_ventas, ROUND(SUM(v.total) * 0.30, 2) AS ganancia_estimada
+                FROM venta v
+                JOIN sucursal s ON v.id_sucursal = s.id_sucursal
+                WHERE DATE(v.fecha) BETWEEN %s AND %s
+                GROUP BY s.nombre, YEAR(v.fecha), MONTH(v.fecha)
+                ORDER BY anio DESC, mes DESC
+            """
+            datos = db.execute_query(query, (fecha_inicio, fecha_fin)) or []
+        elif tipo == 'inventario':
+            query = """
+                SELECT s.nombre AS sucursal, m.nombre_comercial AS medicamento, 
+                       i.stock_actual AS stock, i.stock_minimo
+                FROM inventario i
+                JOIN sucursal s ON i.id_sucursal = s.id_sucursal
+                JOIN medicamento m ON i.id_medicamento = m.id_medicamento
+                WHERE i.stock_actual <= i.stock_minimo
+                ORDER BY s.nombre, m.nombre_comercial
+            """
+            datos = db.execute_query(query) or []
+            
+        return jsonify({'success': True, 'datos': datos})
+    except Exception as e:
+        print(f"Error api_reportes_generar: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/reportes/exportar/excel', methods=['GET'])
+@login_required
+def api_reportes_exportar_excel():
+    try:
+        import csv
+        from io import StringIO
+        from flask import Response, make_response
+        
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        tipo = request.args.get('tipo', 'ventas')
+        
+        datos = []
+        headers = []
+        filename = f"reporte_{tipo}_{datetime.now().strftime('%Y%m%d')}.csv"
+        
+        if tipo == 'ventas':
+            query = """
+                SELECT s.nombre AS sucursal, DATE_FORMAT(v.fecha, '%Y-%m-%d %H:%i') AS fecha, 
+                       COALESCE(CONCAT(c.nombres, ' ', c.apellidos), 'Cliente Casual') AS cliente, 
+                       v.total AS total_bs
+                FROM venta v
+                JOIN sucursal s ON v.id_sucursal = s.id_sucursal
+                LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
+                WHERE DATE(v.fecha) BETWEEN %s AND %s
+                ORDER BY v.fecha DESC
+            """
+            datos = db.execute_query(query, (fecha_inicio, fecha_fin)) or []
+            headers = ['SUCURSAL', 'FECHA', 'CLIENTE', 'TOTAL (Bs.)']
+        elif tipo == 'ganancias':
+            query = """
+                SELECT s.nombre AS sucursal, YEAR(v.fecha) AS anio, MONTH(v.fecha) AS mes, 
+                       SUM(v.total) AS total_ventas, ROUND(SUM(v.total) * 0.30, 2) AS ganancia_estimada
+                FROM venta v
+                JOIN sucursal s ON v.id_sucursal = s.id_sucursal
+                WHERE DATE(v.fecha) BETWEEN %s AND %s
+                GROUP BY s.nombre, YEAR(v.fecha), MONTH(v.fecha)
+            """
+            datos = db.execute_query(query, (fecha_inicio, fecha_fin)) or []
+            headers = ['SUCURSAL', 'ANIO', 'MES', 'TOTAL VENTAS (Bs.)', 'GANANCIA ESTIMADA (Bs.)']
+        elif tipo == 'inventario':
+            query = """
+                SELECT s.nombre AS sucursal, m.nombre_comercial AS medicamento, 
+                       i.stock_actual AS stock, i.stock_minimo
+                FROM inventario i
+                JOIN sucursal s ON i.id_sucursal = s.id_sucursal
+                JOIN medicamento m ON i.id_medicamento = m.id_medicamento
+                WHERE i.stock_actual <= i.stock_minimo
+            """
+            datos = db.execute_query(query) or []
+            headers = ['SUCURSAL', 'MEDICAMENTO', 'STOCK ACTUAL', 'STOCK MINIMO']
+            
+        si = StringIO()
+        cw = csv.writer(si)
+        cw.writerow(headers)
+        
+        for row in datos:
+            cw.writerow(list(row.values()))
+            
+        output = make_response(si.getvalue())
+        output.headers["Content-Disposition"] = f"attachment; filename={filename}"
+        output.headers["Content-type"] = "text/csv; charset=utf-8"
+        return output
+    except Exception as e:
+        print(f"Error api_reportes_exportar_excel: {e}")
+        return redirect(url_for('admin_reportes'))
+
+@app.route('/api/reportes/exportar/pdf', methods=['GET'])
+@login_required
+def api_reportes_exportar_pdf():
+    try:
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        tipo = request.args.get('tipo', 'ventas')
+        
+        datos = []
+        if tipo == 'ventas':
+            query = """
+                SELECT s.nombre AS sucursal, DATE_FORMAT(v.fecha, '%d/%m/%Y %H:%i') AS fecha, 
+                       COALESCE(CONCAT(c.nombres, ' ', c.apellidos), 'Cliente Casual') AS cliente, 
+                       v.total
+                FROM venta v
+                JOIN sucursal s ON v.id_sucursal = s.id_sucursal
+                LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
+                WHERE DATE(v.fecha) BETWEEN %s AND %s
+                ORDER BY v.fecha DESC
+            """
+            datos = db.execute_query(query, (fecha_inicio, fecha_fin)) or []
+        elif tipo == 'ganancias':
+            query = """
+                SELECT s.nombre AS sucursal, CONCAT(MONTH(v.fecha), '/', YEAR(v.fecha)) AS periodo, 
+                       SUM(v.total) AS total_ventas, ROUND(SUM(v.total) * 0.30, 2) AS ganancia_estimada
+                FROM venta v
+                JOIN sucursal s ON v.id_sucursal = s.id_sucursal
+                WHERE DATE(v.fecha) BETWEEN %s AND %s
+                GROUP BY s.nombre, YEAR(v.fecha), MONTH(v.fecha)
+            """
+            datos = db.execute_query(query, (fecha_inicio, fecha_fin)) or []
+        elif tipo == 'inventario':
+            query = """
+                SELECT s.nombre AS sucursal, m.nombre_comercial AS medicamento, 
+                       i.stock_actual AS stock, i.stock_minimo
+                FROM inventario i
+                JOIN sucursal s ON i.id_sucursal = s.id_sucursal
+                JOIN medicamento m ON i.id_medicamento = m.id_medicamento
+                WHERE i.stock_actual <= i.stock_minimo
+            """
+            datos = db.execute_query(query) or []
+            
+        return render_template('admin/reporte_pdf.html', datos=datos, tipo=tipo, 
+                               fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, hoy=datetime.now().strftime('%d/%m/%Y'))
+    except Exception as e:
+        print(f"Error api_reportes_exportar_pdf: {e}")
+        return redirect(url_for('admin_reportes'))
+
+
+@app.route('/admin/proveedores')
+@login_required
+def admin_proveedores():
+    if session.get('tipo_usuario') != 'admin' or session.get('rol') != 'ADMIN':
+        flash('Acceso denegado', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    query = "SELECT * FROM proveedor ORDER BY razon_social"
+    proveedores = db.execute_query(query) or []
+    return render_template('admin/proveedores.html', proveedores=proveedores)
+
+@app.route('/api/proveedores/crear', methods=['POST'])
+@login_required
+def api_proveedores_crear():
+    try:
+        if session.get('tipo_usuario') != 'admin' or session.get('rol') != 'ADMIN':
+            return jsonify({'success': False, 'error': 'Acceso no autorizado'}), 401
+            
+        nit = request.form.get('nit')
+        razon_social = request.form.get('razon_social')
+        direccion = request.form.get('direccion')
+        telefono = request.form.get('telefono')
+        contacto = request.form.get('contacto')
+        
+        # Check if already exists
+        exist_query = "SELECT * FROM proveedor WHERE nit = %s"
+        exist = db.execute_query(exist_query, (nit,))
+        if exist:
+            return jsonify({'success': False, 'error': 'Ya existe un proveedor con ese NIT'}), 400
+            
+        query = """
+            INSERT INTO proveedor (nit, razon_social, direccion, telefono, contacto)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        id_proveedor = db.execute_insert(query, (nit, razon_social, direccion, telefono, contacto))
+        if id_proveedor:
+            estructuras.registrar_accion('CREAR_PROVEEDOR', 'PROVEEDORES', f'Creado proveedor {razon_social}')
+            return jsonify({'success': True, 'id_proveedor': id_proveedor})
+        else:
+            return jsonify({'success': False, 'error': 'No se pudo crear el proveedor'}), 500
+    except Exception as e:
+        print(f"Error api_proveedores_crear: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/proveedores/actualizar', methods=['POST'])
+@login_required
+def api_proveedores_actualizar():
+    try:
+        if session.get('tipo_usuario') != 'admin' or session.get('rol') != 'ADMIN':
+            return jsonify({'success': False, 'error': 'Acceso no autorizado'}), 401
+            
+        id_proveedor = request.form.get('id_proveedor')
+        nit = request.form.get('nit')
+        razon_social = request.form.get('razon_social')
+        direccion = request.form.get('direccion')
+        telefono = request.form.get('telefono')
+        contacto = request.form.get('contacto')
+        
+        query = """
+            UPDATE proveedor
+            SET nit = %s, razon_social = %s, direccion = %s, telefono = %s, contacto = %s
+            WHERE id_proveedor = %s
+        """
+        db.execute_update(query, (nit, razon_social, direccion, telefono, contacto, id_proveedor))
+        estructuras.registrar_accion('ACTUALIZAR_PROVEEDOR', 'PROVEEDORES', f'Actualizado proveedor {razon_social}')
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Error api_proveedores_actualizar: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/proveedores/eliminar/<int:id_proveedor>', methods=['POST'])
+@login_required
+def api_proveedores_eliminar(id_proveedor):
+    try:
+        if session.get('tipo_usuario') != 'admin' or session.get('rol') != 'ADMIN':
+            return jsonify({'success': False, 'error': 'Acceso no autorizado'}), 401
+            
+        query = "DELETE FROM proveedor WHERE id_proveedor = %s"
+        db.execute_delete(query, (id_proveedor,))
+        estructuras.registrar_accion('ELIMINAR_PROVEEDOR', 'PROVEEDORES', f'Eliminado proveedor ID {id_proveedor}')
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Error api_proveedores_eliminar: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ======================================================

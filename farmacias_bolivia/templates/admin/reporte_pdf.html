@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de {{ tipo|capitalize }} - Farmacias Bolivia</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #fff;
+            color: #333;
+            padding: 20px;
+        }
+        .report-header {
+            border-bottom: 3px double #2e7d32;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .report-title {
+            color: #2e7d32;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .table thead th {
+            background-color: #2e7d32 !important;
+            color: white !important;
+            border: none;
+        }
+        .footer-note {
+            margin-top: 50px;
+            border-top: 1px solid #dee2e6;
+            padding-top: 10px;
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                padding: 0;
+            }
+            .table thead th {
+                background-color: #2e7d32 !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Botones de Acción (no imprimibles) -->
+        <div class="d-flex justify-content-between align-items-center mb-4 no-print bg-light p-3 rounded shadow-sm">
+            <a href="javascript:window.close();" class="btn btn-outline-secondary" onclick="window.history.back();">
+                <i class="fas fa-arrow-left"></i> Volver a Reportes
+            </a>
+            <button class="btn btn-danger" onclick="window.print();">
+                <i class="fas fa-print"></i> Imprimir / Guardar como PDF
+            </button>
+        </div>
+
+        <!-- Encabezado del Reporte -->
+        <div class="report-header text-center">
+            <div class="row align-items-center">
+                <div class="col-md-3 text-start">
+                    <h5 class="report-title mb-0"><i class="fas fa-hospital-user"></i> Farmacias Bolivia</h5>
+                    <p class="small text-muted mb-0">Salud y Calidad</p>
+                </div>
+                <div class="col-md-6">
+                    <h3 class="fw-bold text-success mb-1">REPORTE OFICIAL DE {{ tipo|upper }}</h3>
+                    {% if tipo != 'inventario' %}
+                    <p class="mb-0 text-muted">Período: <strong>{{ fecha_inicio }}</strong> al <strong>{{ fecha_fin }}</strong></p>
+                    {% else %}
+                    <p class="mb-0 text-muted">Estado actual de Alertas de Stock Crítico</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-3 text-end">
+                    <p class="small mb-0"><strong>Fecha Emisión:</strong> {{ hoy }}</p>
+                    <p class="small text-muted mb-0">Generado por: Administrador</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Datos del Reporte -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle">
+                <thead>
+                    <tr>
+                        {% if tipo == 'ventas' %}
+                            <th>Sucursal</th>
+                            <th>Fecha/Hora</th>
+                            <th>Cliente</th>
+                            <th class="text-end">Total (Bs.)</th>
+                        {% elif tipo == 'ganancias' %}
+                            <th>Sucursal</th>
+                            <th>Período</th>
+                            <th class="text-end">Total Ventas (Bs.)</th>
+                            <th class="text-end">Ganancias Estimadas (Bs.)</th>
+                        {% elif tipo == 'inventario' %}
+                            <th>Sucursal</th>
+                            <th>Medicamento</th>
+                            <th class="text-center">Stock Actual</th>
+                            <th class="text-center">Stock Mínimo</th>
+                            <th class="text-center">Estado</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in datos %}
+                        <tr>
+                            {% if tipo == 'ventas' %}
+                                <td><strong>{{ row.sucursal }}</strong></td>
+                                <td>{{ row.fecha }}</td>
+                                <td>{{ row.cliente }}</td>
+                                <td class="text-end fw-bold">Bs. {{ "%.2f"|format(row.total|float) }}</td>
+                            {% elif tipo == 'ganancias' %}
+                                <td><strong>{{ row.sucursal }}</strong></td>
+                                <td>{{ row.periodo or row.mes ~ '/' ~ row.anio }}</td>
+                                <td class="text-end">Bs. {{ "%.2f"|format(row.total_ventas|float) }}</td>
+                                <td class="text-end text-success fw-bold">Bs. {{ "%.2f"|format(row.ganancia_estimada|float) }}</td>
+                            {% elif tipo == 'inventario' %}
+                                <td><strong>{{ row.sucursal }}</strong></td>
+                                <td>{{ row.medicamento }}</td>
+                                <td class="text-center fw-bold text-danger">{{ row.stock_actual or row.stock }} u.</td>
+                                <td class="text-center text-muted">{{ row.stock_minimo }} u.</td>
+                                <td class="text-center">
+                                    <span class="badge bg-danger text-white">Stock Crítico</span>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">No se encontraron registros para el filtro seleccionado.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Firma y Pie de Página -->
+        <div class="footer-note d-flex justify-content-between align-items-center">
+            <span class="small">© 2026 Farmacias Bolivia - Reporte Automatizado de Control de Gestión.</span>
+            <span class="small text-muted">Página 1 de 1</span>
+        </div>
+    </div>
+
+    <!-- Script para autodisparar el print -->
+    <script>
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 500);
+        }
+    </script>
+</body>
+</html>

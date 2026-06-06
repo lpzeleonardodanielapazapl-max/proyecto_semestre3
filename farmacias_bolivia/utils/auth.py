@@ -116,36 +116,59 @@ def verificar_usuario_hash(identificador, password):
     }
 
 
-def verificar_cliente_hash(identificador):
-    """Verifica cliente usando la tabla hash"""
-    if not identificador:
+def verificar_cliente_hash(identificador, password):
+    """Verifica cliente usando la tabla hash y bcrypt"""
+    if not identificador or not password:
         return None
 
     clave = str(identificador).strip()
     cliente = tabla_hash_clientes.get(clave) or tabla_hash_clientes.get(clave.lower()) or tabla_hash_clientes.get(clave.upper())
 
     if cliente:
+        contrasena_hash = cliente.get('contrasena') or ''
+        print(f"✅ Cliente encontrado en Hash: {cliente.get('nombre')}")
+        
+        if _is_bcrypt_hash(contrasena_hash):
+            try:
+                if not bcrypt.checkpw(password.encode('utf-8'), contrasena_hash.encode('utf-8')):
+                    print(f"❌ Contraseña incorrecta para cliente: {identificador}")
+                    return None
+            except Exception as e:
+                print(f"❌ Error verificando contraseña de cliente: {e}")
+                return None
+        else:
+            # Fallback a texto plano por si acaso
+            if password != contrasena_hash:
+                print(f"❌ Contraseña incorrecta (plano) para cliente: {identificador}")
+                return None
+                
         return {
             'id_cliente': cliente.get('id_cliente'),
             'ci': cliente.get('ci'),
-            'nombre': cliente.get('nombre'),
-            'apellido_paterno': cliente.get('apellido_paterno'),
+            'nombre': cliente.get('nombre') or cliente.get('nombres') or '',
+            'apellido_paterno': cliente.get('apellido_paterno') or cliente.get('apellidos') or '',
             'email': cliente.get('email'),
             'telefono': cliente.get('telefono'),
             'direccion': cliente.get('direccion')
         }
 
-    print(f"❌ Cliente no encontrado: {identificador}")
+    print(f"❌ Cliente no encontrado en Hash: {identificador}")
     return None
 
-def registrar_cliente(ci, nombre, apellido_paterno, apellido_materno, email, telefono, direccion):
-    """Registra un nuevo cliente en la BD y actualiza tabla hash"""
+def registrar_cliente(ci, nombre, apellido_paterno, apellido_materno, email, telefono, direccion, contrasena):
+    """Registra un nuevo cliente en la BD con contrasena encriptada y actualiza tabla hash"""
+    apellidos = f"{apellido_paterno} {apellido_materno or ''}".strip()
+    
+    # Encriptar contraseña con bcrypt
+    salt = bcrypt.gensalt(12)
+    contrasena_hash = bcrypt.hashpw(contrasena.encode('utf-8'), salt).decode('utf-8')
+    
     query = """
-        INSERT INTO cliente (ci, nombre, apellido_paterno, apellido_materno, email, telefono, direccion)
+        INSERT INTO cliente (ci, nombres, apellidos, email, telefono, direccion, contrasena)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
     """
     
-    params = (ci, nombre, apellido_paterno, apellido_materno, email, telefono, direccion)
+    params = (ci, nombre, apellidos, email, telefono, direccion, contrasena_hash)
     resultado = db.execute_insert(query, params)
     
     if resultado:

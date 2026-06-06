@@ -10,7 +10,7 @@ class Config:
     MYSQL_HOST = 'localhost'
     MYSQL_USER = 'root'
     MYSQL_PASSWORD = ''
-    MYSQL_DATABASE = 'farmacias_bolivia'
+    MYSQL_DATABASE = 'farmacias_bolivia_corregida'
     MYSQL_PORT = 3306
     
     # Configuración de archivos

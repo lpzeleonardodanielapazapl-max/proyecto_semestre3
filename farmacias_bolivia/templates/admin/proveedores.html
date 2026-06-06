@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Proveedores - Farmacias Bolivia{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-truck-loading"></i> Gestión de Proveedores</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalProveedor" onclick="resetFormProveedor()">
+            <i class="fas fa-plus"></i> Nuevo Proveedor
+        </button>
+    </div>
+
+    <!-- Buscador de Proveedores -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="input-group">
+                <span class="input-group-text bg-success text-white"><i class="fas fa-search"></i></span>
+                <input type="text" id="buscadorProveedores" class="form-control" placeholder="Buscar proveedor por NIT, Razón Social, Dirección o Contacto...">
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Proveedores -->
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Proveedores Registrados</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>NIT</th>
+                            <th>Razón Social</th>
+                            <th>Dirección</th>
+                            <th>Teléfono</th>
+                            <th>Contacto</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaProveedoresBody">
+                        {% for prov in proveedores %}
+                        <tr class="proveedor-row">
+                            <td>{{ prov.id_proveedor }}</td>
+                            <td><span class="badge bg-secondary">{{ prov.nit }}</span></td>
+                            <td><strong>{{ prov.razon_social }}</strong></td>
+                            <td>{{ prov.direccion or 'N/A' }}</td>
+                            <td>{{ prov.telefono or 'N/A' }}</td>
+                            <td><i class="fas fa-user-circle text-success me-1"></i>{{ prov.contacto or 'N/A' }}</td>
+                            <td class="text-center">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary btn-editar-proveedor"
+                                            data-id="{{ prov.id_proveedor }}"
+                                            data-nit="{{ prov.nit }}"
+                                            data-razon="{{ prov.razon_social }}"
+                                            data-direccion="{{ prov.direccion or '' }}"
+                                            data-telefono="{{ prov.telefono or '' }}"
+                                            data-contacto="{{ prov.contacto or '' }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger btn-eliminar-proveedor" data-id="{{ prov.id_proveedor }}" data-razon="{{ prov.razon_social }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">No hay proveedores registrados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Proveedor (Crear/Editar) -->
+<div class="modal fade" id="modalProveedor" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalProveedorTitle"><i class="fas fa-truck"></i> Nuevo Proveedor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formProveedor">
+                    <input type="hidden" id="proveedor_id" name="id_proveedor">
+                    <div class="mb-3">
+                        <label class="form-label">NIT *</label>
+                        <input type="text" id="nit_proveedor" name="nit" class="form-control" placeholder="Ej: 1029384756" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Razón Social *</label>
+                        <input type="text" id="razon_social" name="razon_social" class="form-control" placeholder="Ej: Droguería INTI S.A." required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dirección</label>
+                        <input type="text" id="direccion_proveedor" name="direccion" class="form-control" placeholder="Calle, Nro, Zona">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" id="telefono_proveedor" name="telefono" class="form-control" placeholder="Ej: 2221144">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contacto (Nombre Encargado)</label>
+                        <input type="text" id="contacto_proveedor" name="contacto" class="form-control" placeholder="Ej: Lic. Marcelo Pérez">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-success" onclick="guardarProveedor()">
+                    <i class="fas fa-save"></i> Guardar Proveedor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Buscador en tiempo real
+    $('#buscadorProveedores').on('keyup', function() {
+        var value = $(this).val().toLowerCase();
+        $('.proveedor-row').each(function() {
+            var text = $(this).text().toLowerCase();
+            if (text.indexOf(value) > -1) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+
+    // Cargar para editar
+    $(document).on('click', '.btn-editar-proveedor', function() {
+        var btn = $(this);
+        $('#modalProveedorTitle').html('<i class="fas fa-edit"></i> Editar Proveedor');
+        $('#proveedor_id').val(btn.data('id'));
+        $('#nit_proveedor').val(btn.data('nit'));
+        $('#razon_social').val(btn.data('razon'));
+        $('#direccion_proveedor').val(btn.data('direccion'));
+        $('#telefono_proveedor').val(btn.data('telefono'));
+        $('#contacto_proveedor').val(btn.data('contacto'));
+        $('#modalProveedor').modal('show');
+    });
+
+    // Eliminar proveedor
+    $(document).on('click', '.btn-eliminar-proveedor', function() {
+        var id = $(this).data('id');
+        var razon = $(this).data('razon');
+        if (confirm('¿Está seguro de que desea eliminar al proveedor "' + razon + '"? Esta acción no se puede deshacer.')) {
+            eliminarProveedor(id);
+        }
+    });
+});
+
+function resetFormProveedor() {
+    $('#modalProveedorTitle').html('<i class="fas fa-truck"></i> Nuevo Proveedor');
+    $('#formProveedor')[0].reset();
+    $('#proveedor_id').val('');
+}
+
+function guardarProveedor() {
+    var id = $('#proveedor_id').val();
+    var url = id ? '/api/proveedores/actualizar' : '/api/proveedores/crear';
+    var nit = $('#nit_proveedor').val().trim();
+    var razon = $('#razon_social').val().trim();
+
+    if (!nit || !razon) {
+        alert('NIT y Razón Social son campos requeridos.');
+        return;
+    }
+
+    mostrarLoading();
+
+    $.ajax({
+        url: url,
+        method: 'POST',
+        data: $('#formProveedor').serialize(),
+        success: function(response) {
+            if (response.success) {
+                mostrarNotificacion(id ? 'Proveedor actualizado correctamente' : 'Proveedor registrado correctamente', 'success');
+                setTimeout(function() { location.reload(); }, 1500);
+            } else {
+                mostrarNotificacion(response.error || 'Error al guardar proveedor', 'danger');
+            }
+        },
+        error: function(xhr) {
+            var errorMsg = xhr.responseJSON ? xhr.responseJSON.error : 'Error en la solicitud';
+            mostrarNotificacion(errorMsg, 'danger');
+        },
+        complete: function() {
+            ocultarLoading();
+            $('#modalProveedor').modal('hide');
+        }
+    });
+}
+
+function eliminarProveedor(id) {
+    mostrarLoading();
+    $.ajax({
+        url: '/api/proveedores/eliminar/' + id,
+        method: 'POST',
+        success: function(response) {
+            if (response.success) {
+                mostrarNotificacion('Proveedor eliminado correctamente', 'success');
+                setTimeout(function() { location.reload(); }, 1000);
+            } else {
+                mostrarNotificacion(response.error || 'Error al eliminar', 'danger');
+            }
+        },
+        error: function() {
+            mostrarNotificacion('Error al intentar eliminar el proveedor', 'danger');
+        },
+        complete: function() {
+            ocultarLoading();
+        }
+    });
+}
+
+function mostrarNotificacion(mensaje, tipo) {
+    var icono = tipo === 'success' ? 'check-circle' : (tipo === 'danger' ? 'exclamation-circle' : 'info-circle');
+    var alertDiv = $(
+        '<div class="alert alert-' + tipo + ' alert-dismissible fade show position-fixed top-0 end-0 m-3" ' +
+        'style="z-index: 9999; min-width: 300px;" role="alert">' +
+        '<i class="fas fa-' + icono + ' me-2"></i>' +
+        mensaje +
+        '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+        '</div>'
+    );
+    $('body').append(alertDiv);
+    setTimeout(function() { alertDiv.fadeOut('slow', function() { $(this).remove(); }); }, 3000);
+}
+
+function mostrarLoading() {
+    if ($('.spinner-overlay').length === 0) {
+        $('body').append(
+            '<div class="spinner-overlay position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex justify-content-center align-items-center" style="z-index: 9999;">' +
+            '<div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;">' +
+            '<span class="visually-hidden">Cargando...</span>' +
+            '</div>' +
+            '</div>'
+        );
+    }
+}
+
+function ocultarLoading() {
+    $('.spinner-overlay').fadeOut('fast', function() { $(this).remove(); });
+}
+</script>
+{% endblock %}
+{% endblock %}
